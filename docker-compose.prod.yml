@@ -1,0 +1,35 @@
+# Production override for sa-mgmt-tools-prod2
+#
+# Adds Traefik network and Cloudflare tunnel.
+# Requires: traefik-net external network, outbound TCP 7844 for cloudflared.
+#
+# Usage:
+#   podman-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   podman-compose -f docker-compose.yml -f docker-compose.prod.yml down
+
+services:
+  support-portal:
+    ports: !override
+      - "127.0.0.1:3001:3000"
+    expose:
+      - "3000"
+    networks:
+      - traefik-net
+
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:latest
+    container_name: cloudflared-support-portal
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - support-portal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  traefik-net:
+    external: true

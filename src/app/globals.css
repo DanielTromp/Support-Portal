@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+
+@layer base {
+  :root {
+    /* Default brand colors (purple/navy) — overridden at runtime via inline styles */
+    --brand-navy-rgb: 27 31 59;
+    --brand-navy-dark-rgb: 19 22 41;
+    --brand-primary-rgb: 108 43 217;
+    --brand-primary-light-rgb: 139 92 246;
+    --brand-primary-glow-rgb: 168 85 247;
+    --brand-primary-soft-rgb: 237 233 254;
+    --brand-primary-bg-rgb: 245 243 255;
+
+    /* Hex values for gradients */
+    --brand-navy: #1B1F3B;
+    --brand-navy-mid: #2d1b69;
+    --brand-primary: #6C2BD9;
+    --brand-primary-light: #8B5CF6;
+    --brand-primary-glow: #A855F7;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .gradient-hero {
+    background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-navy-mid) 50%, var(--brand-primary) 100%);
+  }
+
+  .gradient-purple-bar {
+    background: linear-gradient(90deg, var(--brand-primary) 0%, var(--brand-primary-glow) 50%, var(--brand-primary) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-lg;
+  }
+
+  .search-glow {
+    box-shadow: 0 0 0 0 rgba(var(--brand-primary-rgb), 0);
+    transition: box-shadow 0.3s ease;
+  }
+  .search-glow:focus-within {
+    box-shadow: 0 0 0 4px rgba(var(--brand-primary-rgb), 0.15), 0 4px 20px rgba(var(--brand-primary-rgb), 0.1);
+  }
+
+  .category-chip {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer select-none;
+  }
+  .category-chip-active {
+    @apply bg-brand-purple text-white shadow-md shadow-brand-purple/25;
+  }
+  .category-chip-inactive {
+    @apply bg-white text-gray-600 hover:bg-brand-purple-soft hover:text-brand-purple border border-gray-200;
+  }
+
+  .faq-card {
+    @apply bg-white rounded-xl border border-gray-100 transition-all duration-200;
+  }
+  .faq-card:hover {
+    @apply border-brand-purple/20 shadow-md shadow-brand-purple/5;
+  }
+
+  .fade-mask {
+    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Accordion animation */
+.accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-out, opacity 0.3s ease-out;
+  opacity: 0;
+}
+.accordion-content.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.accordion-inner {
+  overflow: hidden;
+}
+
+/* Upload drop zone */
+.drop-zone-active {
+  @apply border-brand-purple bg-brand-purple-soft;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Highlight matched text in search */
+.search-highlight {
+  @apply bg-yellow-200/60 text-yellow-900 rounded px-0.5;
+}
