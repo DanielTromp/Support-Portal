@@ -1,6 +1,8 @@
 # ── Build stage ──────────────────────────────────────────────────────────────
 FROM docker.io/node:22-alpine AS builder
 
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -27,7 +29,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/next.config.mjs ./
 
-# Data directory for FAQ JSON (volume mount point) — starts empty
+# Data directory for FAQ JSON + SQLite DB (volume mount point)
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 USER nextjs

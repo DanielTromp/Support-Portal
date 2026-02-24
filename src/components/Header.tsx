@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { Language, BrandConfig } from "@/types";
 import { t } from "@/lib/i18n";
-import { Globe, Upload } from "lucide-react";
+import { Globe, Upload, LogOut, User, Shield } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 
 interface HeaderProps {
   language: Language;
@@ -17,7 +20,21 @@ export default function Header({
   onUploadClick,
   brand,
 }: HeaderProps) {
+  const { data: session } = useSession();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const displayName = brand?.companyName || "Support Portal";
+  const isAdmin = session?.user?.role === "admin";
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50">
@@ -69,16 +86,18 @@ export default function Header({
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Upload button */}
-              <button
-                onClick={onUploadClick}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all text-sm"
-              >
-                <Upload size={16} />
-                <span className="hidden sm:inline">
-                  {t(language, "upload_pdf")}
-                </span>
-              </button>
+              {/* Upload button — admin only */}
+              {isAdmin && (
+                <button
+                  onClick={onUploadClick}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all text-sm"
+                >
+                  <Upload size={16} />
+                  <span className="hidden sm:inline">
+                    {t(language, "upload_pdf")}
+                  </span>
+                </button>
+              )}
 
               {/* Language toggle */}
               <button
@@ -93,6 +112,46 @@ export default function Header({
                 </span>
               </button>
 
+              {/* User menu */}
+              {session?.user && (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen((o) => !o)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all text-sm"
+                  >
+                    <User size={16} />
+                    <span className="hidden sm:inline">{session.user.name}</span>
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                      <div className="px-4 py-2.5 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">{session.user.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {t(language, session.user.role === 'admin' ? 'role_admin' : 'role_user')}
+                        </p>
+                      </div>
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <Shield size={14} />
+                          {t(language, "user_menu_admin")}
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                      >
+                        <LogOut size={14} />
+                        {t(language, "user_menu_signout")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

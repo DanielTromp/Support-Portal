@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Fuse from "fuse.js";
 import { FaqData, FaqItem, Language } from "@/types";
 import { computeBrandCssVars } from "@/lib/brand-theme";
@@ -9,7 +9,16 @@ import HeroSearch from "@/components/HeroSearch";
 import CategoryFilter from "@/components/CategoryFilter";
 import FaqList from "@/components/FaqList";
 import UploadModal from "@/components/UploadModal";
+import ChatPanel from "@/components/ChatPanel";
 import Footer from "@/components/Footer";
+
+function trackActivity(action: string, details?: Record<string, unknown>) {
+  fetch('/api/activity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, details }),
+  }).catch(() => {});
+}
 
 export default function HomePage() {
   const [language, setLanguage] = useState<Language>("nl");
@@ -18,6 +27,7 @@ export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [loading, setLoading] = useState(true);
+  const trackedPageView = useRef(false);
 
   // Load FAQ data
   const loadFaqData = useCallback(async () => {
@@ -34,6 +44,10 @@ export default function HomePage() {
 
   useEffect(() => {
     loadFaqData();
+    if (!trackedPageView.current) {
+      trackActivity('page_view', { page: '/' });
+      trackedPageView.current = true;
+    }
   }, [loadFaqData]);
 
   // Compute brand CSS variables
@@ -124,8 +138,8 @@ export default function HomePage() {
           searchQuery={searchQuery}
           onSearchChange={(q) => {
             setSearchQuery(q);
-            // Reset category when searching
             if (q.length > 0) setActiveCategory(null);
+            if (q.length >= 2) trackActivity('search', { query: q });
           }}
           totalArticles={faqData?.items.length ?? 0}
           totalCategories={faqData?.categories.length ?? 0}
@@ -135,7 +149,10 @@ export default function HomePage() {
           language={language}
           categories={faqData?.categories ?? []}
           activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
+          onCategoryChange={(cat) => {
+            setActiveCategory(cat);
+            if (cat) trackActivity('category_filter', { category: cat });
+          }}
           categoryCounts={categoryCounts}
         />
 
@@ -155,6 +172,8 @@ export default function HomePage() {
         onClose={() => setShowUpload(false)}
         onUploadComplete={loadFaqData}
       />
+
+      <ChatPanel language={language} />
     </div>
   );
 }

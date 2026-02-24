@@ -17,6 +17,10 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data:Z
+    environment:
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (64-char hex)}
     restart: unless-stopped
     logging:
       driver: json-file
