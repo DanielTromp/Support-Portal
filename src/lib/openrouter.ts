@@ -1,5 +1,9 @@
 import { getDb } from './db';
 import { decrypt } from './crypto';
+import Fuse from 'fuse.js';
+import fs from 'fs';
+import path from 'path';
+import { FaqItem, FaqData } from '@/types';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -30,6 +34,60 @@ function getConfig(key: string): string | null {
   }
 }
 
+let faqCache: { data: FaqData; mtime: number } | null = null;
+
+function loadFaq(): FaqData | null {
+  const faqPath = path.join(process.cwd(), 'data', 'faq.json');
+  try {
+    const stat = fs.statSync(faqPath);
+    if (faqCache && faqCache.mtime === stat.mtimeMs) return faqCache.data;
+    const content = fs.readFileSync(faqPath, 'utf-8');
+    const data = JSON.parse(content) as FaqData;
+    faqCache = { data, mtime: stat.mtimeMs };
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function searchFaq(query: string, limit = 8): FaqItem[] {
+  const faq = loadFaq();
+  if (!faq || !faq.items.length) return [];
+
+  const fuse = new Fuse(faq.items, {
+    keys: [
+      { name: 'question', weight: 0.6 },
+      { name: 'answer', weight: 0.3 },
+      { name: 'category', weight: 0.1 },
+    ],
+    threshold: 0.5,
+    includeScore: true,
+  });
+
+  return fuse.search(query, { limit }).map((r) => r.item);
+}
+
+function buildSystemPrompt(userQuery: string, customPrompt: string | null): string {
+  const matches = searchFaq(userQuery);
+
+  let prompt = `You are a helpful support assistant. Answer questions based on the FAQ knowledge base provided below.
+If a question is not covered in the FAQ context, politely say you don't have that information and suggest contacting support.
+Always be friendly and professional. Answer in the same language as the user's question.`;
+
+  if (matches.length > 0) {
+    prompt += '\n\n## Relevant FAQ\n';
+    for (const item of matches) {
+      prompt += `\n### ${item.question}\n${item.answer}\n`;
+    }
+  }
+
+  if (customPrompt) {
+    prompt += `\n\n## Additional Instructions\n${customPrompt}`;
+  }
+
+  return prompt;
+}
+
 export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRouterResponse> {
   const apiKey = getConfig('openrouter_api_key');
   if (!apiKey) {
@@ -37,14 +95,17 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRoute
   }
 
   const model = getConfig('openrouter_model') || 'google/gemini-2.5-flash';
-  const systemPrompt = getConfig('openrouter_system_prompt');
+  const customPrompt = getConfig('openrouter_system_prompt');
   const maxTokens = parseInt(getConfig('openrouter_max_tokens') || '2048', 10);
 
-  const fullMessages: ChatMessage[] = [];
-  if (systemPrompt) {
-    fullMessages.push({ role: 'system', content: systemPrompt });
-  }
-  fullMessages.push(...messages);
+  // Extract the latest user message for FAQ search
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+  const systemPrompt = buildSystemPrompt(lastUserMessage?.content || '', customPrompt);
+
+  const fullMessages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
