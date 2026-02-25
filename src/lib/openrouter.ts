@@ -1,5 +1,7 @@
 import { getDb } from './db';
 import { decrypt } from './crypto';
+import fs from 'fs';
+import path from 'path';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -17,6 +19,18 @@ interface OpenRouterResponse {
   cost: number;
 }
 
+interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+}
+
+interface FaqData {
+  categories: string[];
+  items: FaqItem[];
+}
+
 function getConfig(key: string): string | null {
   const db = getDb();
   const row = db.prepare('SELECT value_encrypted FROM config WHERE key = ?').get(key) as
@@ -30,6 +44,40 @@ function getConfig(key: string): string | null {
   }
 }
 
+function loadFaq(): FaqData | null {
+  try {
+    const faqPath = path.join(process.cwd(), 'data', 'faq.json');
+    if (!fs.existsSync(faqPath)) return null;
+    const content = fs.readFileSync(faqPath, 'utf-8');
+    return JSON.parse(content) as FaqData;
+  } catch {
+    return null;
+  }
+}
+
+function buildSystemPrompt(customPrompt: string | null): string {
+  const faq = loadFaq();
+
+  let prompt = `You are a helpful support assistant. Answer questions based on the FAQ knowledge base below.
+If a question is not covered in the FAQ, politely say you don't have that information and suggest contacting support.
+Always be friendly and professional. Answer in the same language as the user's question.
+
+`;
+
+  if (faq && faq.items.length > 0) {
+    prompt += `## FAQ Knowledge Base\n\n`;
+    for (const item of faq.items) {
+      prompt += `### ${item.question}\n${item.answer}\n\n`;
+    }
+  }
+
+  if (customPrompt) {
+    prompt += `\n## Additional Instructions\n${customPrompt}\n`;
+  }
+
+  return prompt;
+}
+
 export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRouterResponse> {
   const apiKey = getConfig('openrouter_api_key');
   if (!apiKey) {
@@ -37,14 +85,14 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRoute
   }
 
   const model = getConfig('openrouter_model') || 'google/gemini-2.5-flash';
-  const systemPrompt = getConfig('openrouter_system_prompt');
+  const customPrompt = getConfig('openrouter_system_prompt');
   const maxTokens = parseInt(getConfig('openrouter_max_tokens') || '2048', 10);
 
-  const fullMessages: ChatMessage[] = [];
-  if (systemPrompt) {
-    fullMessages.push({ role: 'system', content: systemPrompt });
-  }
-  fullMessages.push(...messages);
+  const systemPrompt = buildSystemPrompt(customPrompt);
+  const fullMessages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
