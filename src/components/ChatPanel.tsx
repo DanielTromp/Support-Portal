@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, Bot, RotateCcw } from 'lucide-react';
+import { MessageCircle, Send, Bot, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Language } from '@/types';
 import { t } from '@/lib/i18n';
@@ -114,26 +114,23 @@ export default function ChatPanel({ language }: ChatPanelProps) {
 
   return (
     <>
-      {/* Tab trigger */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className={`fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-2 px-2 py-4 rounded-l-xl bg-brand-purple text-white shadow-lg hover:shadow-xl hover:px-3 transition-all duration-200 ${
-          isOpen ? 'pointer-events-none opacity-0' : 'opacity-100'
-        }`}
-        aria-label={t(language, 'chat_tab')}
-      >
-        <MessageCircle size={20} />
-        <span className="chat-tab-text text-xs font-semibold tracking-wide">
-          {t(language, 'chat_tab')}
-        </span>
-      </button>
-
-      {/* Panel */}
+      {/* Panel + attached tab */}
       <div
         className={`fixed top-[65px] right-0 bottom-0 w-full sm:w-[540px] z-[60] flex flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
+        {/* Side tab — always visible, toggles panel */}
+        <button
+          onClick={() => setIsOpen((o) => !o)}
+          className="absolute right-full top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 px-2 py-4 rounded-l-xl bg-brand-purple text-white shadow-lg shadow-black/20 border-l-2 border-t-2 border-b-2 border-white/30 hover:px-3 hover:shadow-xl transition-all duration-200"
+          aria-label={t(language, 'chat_tab')}
+        >
+          <MessageCircle size={20} />
+          <span className="chat-tab-text text-xs font-semibold tracking-wide">
+            {t(language, 'chat_tab')}
+          </span>
+        </button>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-brand-navy to-brand-purple text-white">
           <div className="flex items-center gap-3">
@@ -150,23 +147,14 @@ export default function ChatPanel({ language }: ChatPanelProps) {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={startNewChat}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              aria-label={t(language, 'chat_new')}
-              title={t(language, 'chat_new')}
-            >
-              <RotateCcw size={16} />
-            </button>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              aria-label={t(language, 'close')}
-            >
-              <X size={18} />
-            </button>
-          </div>
+          <button
+            onClick={startNewChat}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            aria-label={t(language, 'chat_new')}
+            title={t(language, 'chat_new')}
+          >
+            <RotateCcw size={16} />
+          </button>
         </div>
 
         {/* Messages area */}
