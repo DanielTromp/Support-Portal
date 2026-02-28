@@ -10,6 +10,7 @@ RUN npm ci
 
 COPY tsconfig.json next.config.mjs tailwind.config.ts postcss.config.mjs ./
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 COPY next-env.d.ts ./
 
 RUN npm run build

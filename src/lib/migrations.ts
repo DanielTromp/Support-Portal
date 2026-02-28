@@ -63,8 +63,6 @@ const migrations: Migration[] = [
       ).get() as { sql: string } | undefined;
 
       if (userTableInfo?.sql?.includes('CHECK')) {
-        db.exec('PRAGMA foreign_keys = OFF;');
-
         db.exec('ALTER TABLE users RENAME TO _users_migrate_v2;');
         db.exec(`
           CREATE TABLE users (
@@ -79,8 +77,6 @@ const migrations: Migration[] = [
           'INSERT INTO users SELECT id, username, password_hash, role, created_at FROM _users_migrate_v2;'
         );
         db.exec('DROP TABLE _users_migrate_v2;');
-
-        db.exec('PRAGMA foreign_keys = ON;');
       }
     },
   },
@@ -115,6 +111,9 @@ export function runMigrations(db: Database.Database): void {
 
   console.log(`[migrate] Current schema version: ${current}, applying ${pending.length} migration(s)...`);
 
+  // Disable FK checks for migrations (PRAGMA cannot be set inside a transaction)
+  db.pragma('foreign_keys = OFF');
+
   for (const migration of pending) {
     console.log(`[migrate] Applying v${migration.version}: ${migration.name}`);
 
@@ -127,6 +126,8 @@ export function runMigrations(db: Database.Database): void {
 
     console.log(`[migrate] v${migration.version} applied.`);
   }
+
+  db.pragma('foreign_keys = ON');
 
   console.log(`[migrate] All migrations complete. Schema version: ${getCurrentVersion(db)}`);
 }

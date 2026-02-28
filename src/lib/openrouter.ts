@@ -63,7 +63,7 @@ function searchFaq(query: string, limit = 8): FaqItem[] {
       { name: 'category', weight: 0.1 },
       { name: 'aliases', weight: 0.5 },
     ],
-    threshold: 0.5,
+    threshold: 0.7,
     includeScore: true,
   });
 
