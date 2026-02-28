@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { runMigrations } from './migrations';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'support-portal.db');
 
@@ -11,6 +12,7 @@ export function getDb(): Database.Database {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     initSchema(db);
+    runMigrations(db);
   }
   return db;
 }
@@ -21,7 +23,7 @@ function initSchema(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user')),
+      role TEXT NOT NULL DEFAULT 'user',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -66,24 +68,6 @@ function initSchema(db: Database.Database) {
       message TEXT NOT NULL,
       details_json TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS faq_categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      slug TEXT UNIQUE NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS faqs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category_id INTEGER REFERENCES faq_categories(id) ON DELETE SET NULL,
-      question TEXT NOT NULL,
-      aliases TEXT,
-      answer TEXT NOT NULL,
-      is_enabled INTEGER DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 }

@@ -168,6 +168,8 @@ src/
     auth.ts                  # NextAuth config (full, Node.js)
     auth.config.ts           # NextAuth config (Edge-safe)
     db.ts                    # SQLite singleton + schema
+    version.ts               # App + schema version constants
+    migrations.ts            # Migration runner + definitions
     crypto.ts                # AES-256-GCM encrypt/decrypt
     logger.ts                # System + activity logging
     openrouter.ts            # OpenRouter API client
@@ -179,10 +181,88 @@ src/
     next-auth.d.ts           # NextAuth type augmentation
 scripts/
   seed.ts                    # Create default users
+  migrate.ts                 # Standalone migration runner
 docs/
   template.docx              # Word template for partners
 data/                        # Runtime data (SQLite DB + FAQ JSON, gitignored)
 ```
+
+## Versioning & Migrations
+
+The app tracks both application version and database schema version.
+
+### Version Check
+
+```
+GET /api/version
+```
+
+Returns:
+
+```json
+{ "app": "2.0.0", "schema": 2, "schemaApplied": 2, "upToDate": true }
+```
+
+| Field | Description |
+|-------|-------------|
+| `app` | Application version (semver, from `package.json`) |
+| `schema` | Schema version the code expects |
+| `schemaApplied` | Schema version currently in the database |
+| `upToDate` | `true` if `schemaApplied >= schema` |
+
+### How Migrations Work
+
+Migrations run **automatically on app startup** (first database access). They also run via:
+
+```bash
+# Inside container
+npm run migrate
+
+# Local development
+npx tsx scripts/migrate.ts
+```
+
+Each migration is tracked in the `schema_version` table. Already-applied migrations are skipped. All migrations are idempotent.
+
+### Migration History
+
+| Version | Name | Description |
+|---------|------|-------------|
+| 1 | `add_faq_tables` | Creates `faq_categories` and `faqs` tables |
+| 2 | `add_roles_and_rbac` | Creates `roles` table (admin/user/trainer defaults), removes CHECK constraint from `users.role` |
+
+### Upgrading from main/chat branch to trainer branch
+
+If you have a running container built from the `main` or `chat` branch:
+
+1. **Rebuild** the container from the `trainer` branch:
+   ```bash
+   docker compose up -d --build
+   ```
+2. Migrations run automatically on first request. No manual steps needed.
+3. Verify with `GET /api/version` — `schemaApplied` should be `2`.
+
+To run migrations manually before the first request:
+
+```bash
+docker compose exec support-portal npm run migrate
+```
+
+### Adding New Migrations
+
+Add a new entry to the `migrations` array in `src/lib/migrations.ts`:
+
+```typescript
+{
+  version: 3,
+  name: 'describe_what_changed',
+  up: (db) => {
+    db.exec(`ALTER TABLE ...`);
+  },
+},
+```
+
+Then bump `SCHEMA_VERSION` in `src/lib/version.ts` and `version` in `package.json`.
 
 ## Production Deployment
 

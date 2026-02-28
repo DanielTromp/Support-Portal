@@ -28,6 +28,9 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/next.config.mjs ./
+COPY --from=builder /app/src/lib/version.ts ./src/lib/version.ts
+COPY --from=builder /app/src/lib/migrations.ts ./src/lib/migrations.ts
+COPY --from=builder /app/scripts ./scripts
 
 # Data directory for FAQ JSON + SQLite DB (volume mount point)
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
