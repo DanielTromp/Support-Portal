@@ -3,6 +3,8 @@ import { APP_VERSION, SCHEMA_VERSION } from '@/lib/version';
 import { getDb } from '@/lib/db';
 import { getCurrentVersion, ensureVersionTable } from '@/lib/migrations';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const db = getDb();
   ensureVersionTable(db);
