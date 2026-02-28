@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { checkAccess } from '@/lib/rbac';
 import { getDb } from '@/lib/db';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { log } from '@/lib/logger';
 
 export async function GET() {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/config')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -37,7 +38,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/config')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -53,7 +54,7 @@ export async function PUT(req: NextRequest) {
      ON CONFLICT(key) DO UPDATE SET value_encrypted = excluded.value_encrypted, updated_at = datetime('now')`
   ).run(key, encrypted);
 
-  log('info', `Config updated: ${key}`, { updatedBy: session.user.name });
+  log('info', `Config updated: ${key}`, { updatedBy: session?.user?.name || 'unknown' });
 
   return NextResponse.json({ ok: true });
 }

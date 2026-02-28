@@ -8,7 +8,6 @@ import Header from "@/components/Header";
 import HeroSearch from "@/components/HeroSearch";
 import CategoryFilter from "@/components/CategoryFilter";
 import FaqList from "@/components/FaqList";
-import UploadModal from "@/components/UploadModal";
 import ChatPanel from "@/components/ChatPanel";
 import Footer from "@/components/Footer";
 
@@ -25,7 +24,6 @@ export default function HomePage() {
   const [faqData, setFaqData] = useState<FaqData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [showUpload, setShowUpload] = useState(false);
   const [loading, setLoading] = useState(true);
   const trackedPageView = useRef(false);
 
@@ -128,7 +126,6 @@ export default function HomePage() {
       <Header
         language={language}
         onLanguageChange={setLanguage}
-        onUploadClick={() => setShowUpload(true)}
         brand={brand}
       />
 
@@ -166,12 +163,6 @@ export default function HomePage() {
 
       <Footer language={language} brand={brand} />
 
-      <UploadModal
-        language={language}
-        isOpen={showUpload}
-        onClose={() => setShowUpload(false)}
-        onUploadComplete={loadFaqData}
-      />
 
       <ChatPanel language={language} />
     </div>

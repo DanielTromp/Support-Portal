@@ -3,28 +3,26 @@
 import { useState, useRef, useEffect } from "react";
 import { Language, BrandConfig } from "@/types";
 import { t } from "@/lib/i18n";
-import { Globe, Upload, LogOut, User, Shield } from "lucide-react";
+import { Globe, LogOut, User, Shield } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 
 interface HeaderProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
-  onUploadClick: () => void;
   brand: BrandConfig | null;
 }
 
 export default function Header({
   language,
   onLanguageChange,
-  onUploadClick,
   brand,
 }: HeaderProps) {
   const { data: session } = useSession();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const displayName = brand?.companyName || "Support Portal";
-  const isAdmin = session?.user?.role === "admin";
+  const hasAdminAccess = session?.user?.role && session.user.role !== "user";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -86,18 +84,6 @@ export default function Header({
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Upload button — admin only */}
-              {isAdmin && (
-                <button
-                  onClick={onUploadClick}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-all text-sm"
-                >
-                  <Upload size={16} />
-                  <span className="hidden sm:inline">
-                    {t(language, "upload_pdf")}
-                  </span>
-                </button>
-              )}
 
               {/* Language toggle */}
               <button
@@ -131,7 +117,7 @@ export default function Header({
                           {t(language, session.user.role === 'admin' ? 'role_admin' : 'role_user')}
                         </p>
                       </div>
-                      {isAdmin && (
+                      {hasAdminAccess && (
                         <Link
                           href="/admin"
                           onClick={() => setUserMenuOpen(false)}

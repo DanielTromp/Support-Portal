@@ -34,31 +34,34 @@ function getConfig(key: string): string | null {
   }
 }
 
-let faqCache: { data: FaqData; mtime: number } | null = null;
+function getFaqsFromDb(): FaqItem[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT f.id, f.question, f.answer, f.aliases, c.name as category
+    FROM faqs f
+    LEFT JOIN faq_categories c ON f.category_id = c.id
+    WHERE f.is_enabled = 1
+  `).all() as any[];
 
-function loadFaq(): FaqData | null {
-  const faqPath = path.join(process.cwd(), 'data', 'faq.json');
-  try {
-    const stat = fs.statSync(faqPath);
-    if (faqCache && faqCache.mtime === stat.mtimeMs) return faqCache.data;
-    const content = fs.readFileSync(faqPath, 'utf-8');
-    const data = JSON.parse(content) as FaqData;
-    faqCache = { data, mtime: stat.mtimeMs };
-    return data;
-  } catch {
-    return null;
-  }
+  return rows.map(r => ({
+    id: String(r.id),
+    question: r.question,
+    answer: r.answer,
+    category: r.category || 'Uncategorized',
+    aliases: r.aliases,
+  }));
 }
 
 function searchFaq(query: string, limit = 8): FaqItem[] {
-  const faq = loadFaq();
-  if (!faq || !faq.items.length) return [];
+  const items = getFaqsFromDb();
+  if (!items.length) return [];
 
-  const fuse = new Fuse(faq.items, {
+  const fuse = new Fuse(items, {
     keys: [
       { name: 'question', weight: 0.6 },
       { name: 'answer', weight: 0.3 },
       { name: 'category', weight: 0.1 },
+      { name: 'aliases', weight: 0.5 },
     ],
     threshold: 0.5,
     includeScore: true,

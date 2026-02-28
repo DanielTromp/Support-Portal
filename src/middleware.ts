@@ -25,9 +25,9 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin routes require admin role
+  // Admin routes require elevated role (not just 'user')
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-    if (req.auth.user?.role !== 'admin') {
+    if (!req.auth.user?.role || req.auth.user.role === 'user') {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }

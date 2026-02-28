@@ -3,6 +3,7 @@ import type { NextAuthConfig } from 'next-auth';
 // Edge-safe config — no Node.js dependencies (no DB, no bcrypt).
 // Used by middleware. The full auth.ts extends this with the Credentials provider.
 export default {
+  trustHost: true,
   providers: [],
   session: { strategy: 'jwt' },
   pages: {

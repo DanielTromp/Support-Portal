@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { checkAccess } from '@/lib/rbac';
 import { getDb } from '@/lib/db';
 import { hashSync } from 'bcryptjs';
 import { log } from '@/lib/logger';
 
 export async function GET() {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/users')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -20,7 +21,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/users')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -28,11 +29,14 @@ export async function POST(req: NextRequest) {
   if (!username || !password) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
   }
-  if (role && !['admin', 'user'].includes(role)) {
-    return NextResponse.json({ error: 'Role must be admin or user' }, { status: 400 });
-  }
-
   const db = getDb();
+
+  if (role) {
+    const validRole = db.prepare('SELECT id FROM roles WHERE name = ?').get(role);
+    if (!validRole) {
+      return NextResponse.json({ error: 'Role does not exist' }, { status: 400 });
+    }
+  }
 
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (existing) {
@@ -44,14 +48,14 @@ export async function POST(req: NextRequest) {
     'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)'
   ).run(username, hash, role || 'user');
 
-  log('info', `User created: ${username}`, { createdBy: session.user.name });
+  log('info', `User created: ${username}`, { createdBy: session?.user?.name || 'unknown' });
 
   return NextResponse.json({ id: result.lastInsertRowid, username, role: role || 'user' }, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/users')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -59,11 +63,14 @@ export async function PUT(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: 'User id is required' }, { status: 400 });
   }
-  if (role && !['admin', 'user'].includes(role)) {
-    return NextResponse.json({ error: 'Role must be admin or user' }, { status: 400 });
-  }
-
   const db = getDb();
+
+  if (role) {
+    const validRole = db.prepare('SELECT id FROM roles WHERE name = ?').get(role);
+    if (!validRole) {
+      return NextResponse.json({ error: 'Role does not exist' }, { status: 400 });
+    }
+  }
 
   const user = db.prepare('SELECT id, username FROM users WHERE id = ?').get(id) as { id: number; username: string } | undefined;
   if (!user) {
@@ -89,14 +96,14 @@ export async function PUT(req: NextRequest) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, id);
   }
 
-  log('info', `User updated: ${username || user.username}`, { updatedBy: session.user.name });
+  log('info', `User updated: ${username || user.username}`, { updatedBy: session?.user?.name || 'unknown' });
 
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest) {
   const session = await auth();
-  if (session?.user?.role !== 'admin') {
+  if (!await checkAccess(session?.user?.role, '/admin/users')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -105,8 +112,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'User id is required' }, { status: 400 });
   }
 
-  // Prevent self-deletion
-  if (String(id) === session.user.id) {
+  if (String(id) === session?.user?.id) {
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
   }
 
@@ -117,7 +123,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  log('info', `User deleted: ${user.username}`, { deletedBy: session.user.name });
+  log('info', `User deleted: ${user.username}`, { deletedBy: session?.user?.name || 'unknown' });
 
   return NextResponse.json({ ok: true });
 }
