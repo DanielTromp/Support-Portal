@@ -104,7 +104,7 @@ export default function AdminSidebar() {
           Back to Portal
         </Link>
         <button
-          onClick={() => signOut({ callbackUrl: '/auth/login' })}
+          onClick={async () => { await signOut({ redirect: false }); window.location.href = '/auth/login'; }}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors w-full text-left"
         >
           <LogOut size={18} />
