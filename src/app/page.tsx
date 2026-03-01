@@ -68,7 +68,8 @@ export default function HomePage() {
     if (!faqData?.items.length) return null;
     return new Fuse(faqData.items, {
       keys: [
-        { name: "question", weight: 0.7 },
+        { name: "question", weight: 0.6 },
+        { name: "aliases", weight: 0.5 },
         { name: "answer", weight: 0.3 },
       ],
       threshold: 0.4,
