@@ -1,9 +1,6 @@
 import { getDb } from './db';
 import { decrypt } from './crypto';
-import Fuse from 'fuse.js';
-import fs from 'fs';
-import path from 'path';
-import { FaqItem, FaqData } from '@/types';
+import { searchFaq } from './search';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -34,53 +31,22 @@ function getConfig(key: string): string | null {
   }
 }
 
-function getFaqsFromDb(): FaqItem[] {
-  const db = getDb();
-  const rows = db.prepare(`
-    SELECT f.id, f.question, f.answer, f.aliases, c.name as category
-    FROM faqs f
-    LEFT JOIN faq_categories c ON f.category_id = c.id
-    WHERE f.is_enabled = 1
-  `).all() as any[];
+async function buildSystemPrompt(userQuery: string, customPrompt: string | null, conversationContext?: string): Promise<string> {
+  const matches = await searchFaq(userQuery, 8, conversationContext);
 
-  return rows.map(r => ({
-    id: String(r.id),
-    question: r.question,
-    answer: r.answer,
-    category: r.category || 'Uncategorized',
-    aliases: r.aliases,
-  }));
-}
-
-function searchFaq(query: string, limit = 8): FaqItem[] {
-  const items = getFaqsFromDb();
-  if (!items.length) return [];
-
-  const fuse = new Fuse(items, {
-    keys: [
-      { name: 'question', weight: 0.6 },
-      { name: 'answer', weight: 0.3 },
-      { name: 'category', weight: 0.1 },
-      { name: 'aliases', weight: 0.5 },
-    ],
-    threshold: 0.7,
-    includeScore: true,
-  });
-
-  return fuse.search(query, { limit }).map((r) => r.item);
-}
-
-function buildSystemPrompt(userQuery: string, customPrompt: string | null): string {
-  const matches = searchFaq(userQuery);
-
-  let prompt = `You are a helpful support assistant. Answer questions based on the FAQ knowledge base provided below.
-If a question is not covered in the FAQ context, politely say you don't have that information and suggest contacting support.
+  let prompt = `You are a helpful support assistant. Answer questions using the FAQ knowledge base provided below.
+Use the FAQ entries to formulate helpful answers, even if the user's exact question doesn't match a FAQ title — look at aliases and answers for relevant information.
+If no FAQ entry is even remotely related to the user's question, politely say you don't have that information and suggest contacting support.
 Always be friendly and professional. Answer in the same language as the user's question.`;
 
   if (matches.length > 0) {
     prompt += '\n\n## Relevant FAQ\n';
     for (const item of matches) {
-      prompt += `\n### ${item.question}\n${item.answer}\n`;
+      prompt += `\n### ${item.question}\n`;
+      if (item.aliases) {
+        prompt += `Also known as: ${item.aliases}\n`;
+      }
+      prompt += `${item.answer}\n`;
     }
   }
 
@@ -101,9 +67,13 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRoute
   const customPrompt = getConfig('openrouter_system_prompt');
   const maxTokens = parseInt(getConfig('openrouter_max_tokens') || '2048', 10);
 
-  // Extract the latest user message for FAQ search
-  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
-  const systemPrompt = buildSystemPrompt(lastUserMessage?.content || '', customPrompt);
+  // Search FAQs using the latest user message (primary) + recent context (for vector search)
+  const userMessages = messages.filter(m => m.role === 'user');
+  const latestMessage = userMessages[userMessages.length - 1]?.content || '';
+  const context = userMessages.length > 1
+    ? userMessages.slice(-5, -1).map(m => m.content).join(' ')
+    : undefined;
+  const systemPrompt = await buildSystemPrompt(latestMessage, customPrompt, context);
 
   const fullMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -134,8 +104,8 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<OpenRoute
   const choice = data.choices?.[0];
   const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
-  // OpenRouter includes cost in the response header or we estimate
-  const cost = parseFloat(res.headers.get('x-cost') || '0');
+  // OpenRouter returns cost inside usage object
+  const cost = typeof usage.cost === 'number' ? usage.cost : 0;
 
   return {
     content: choice?.message?.content || '',

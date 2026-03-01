@@ -16,7 +16,8 @@ import {
   ArrowLeft,
   Users,
   HelpCircle,
-  FolderOpen
+  FolderOpen,
+  Database
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/admin/import-export', label: 'Import / Export', icon: Server },
   { href: '/admin/faq-categories', label: 'FAQ Categories', icon: FolderOpen },
   { href: '/admin/faqs', label: 'FAQ Items', icon: HelpCircle },
+  { href: '/admin/embeddings', label: 'Embeddings', icon: Database },
   { href: '/admin/logs', label: 'System Logs', icon: FileText },
 ];
 

@@ -53,5 +53,15 @@ export async function GET() {
     ORDER BY day DESC
   `).all();
 
-  return NextResponse.json({ totals, byUser, byDay });
+  // Embedding costs
+  let embeddingCost = 0;
+  try {
+    embeddingCost = (db.prepare(
+      'SELECT COALESCE(SUM(cost), 0) as c FROM embedding_usage'
+    ).get() as any).c;
+  } catch {
+    // Table may not exist pre-migration
+  }
+
+  return NextResponse.json({ totals, byUser, byDay, embeddingCost });
 }

@@ -80,6 +80,76 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 3,
+    name: 'add_fts5_and_embeddings',
+    up: (db) => {
+      // FTS5 virtual table for full-text search
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS faqs_fts USING fts5(
+          question, answer, aliases,
+          tokenize='unicode61'
+        );
+      `);
+
+      // Triggers to keep FTS5 in sync
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS faqs_ai AFTER INSERT ON faqs BEGIN
+          INSERT INTO faqs_fts(rowid, question, answer, aliases)
+          VALUES (NEW.id, NEW.question, NEW.answer, COALESCE(NEW.aliases, ''));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS faqs_bu BEFORE UPDATE ON faqs BEGIN
+          DELETE FROM faqs_fts WHERE rowid = OLD.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS faqs_au AFTER UPDATE ON faqs BEGIN
+          INSERT INTO faqs_fts(rowid, question, answer, aliases)
+          VALUES (NEW.id, NEW.question, NEW.answer, COALESCE(NEW.aliases, ''));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS faqs_bd BEFORE DELETE ON faqs BEGIN
+          DELETE FROM faqs_fts WHERE rowid = OLD.id;
+        END;
+      `);
+
+      // Populate FTS5 from existing enabled FAQs
+      db.exec(`
+        INSERT INTO faqs_fts(rowid, question, answer, aliases)
+        SELECT id, question, answer, COALESCE(aliases, '') FROM faqs WHERE is_enabled = 1;
+      `);
+
+      // Embeddings storage table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS faq_embeddings (
+          faq_id INTEGER PRIMARY KEY REFERENCES faqs(id) ON DELETE CASCADE,
+          embedding_json TEXT NOT NULL,
+          model TEXT NOT NULL DEFAULT 'google/gemini-embedding-001',
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
+  {
+    version: 4,
+    name: 'add_embedding_cost_tracking',
+    up: (db) => {
+      // Add cost column to faq_embeddings
+      db.exec('ALTER TABLE faq_embeddings ADD COLUMN cost REAL NOT NULL DEFAULT 0');
+      db.exec('ALTER TABLE faq_embeddings ADD COLUMN tokens INTEGER NOT NULL DEFAULT 0');
+
+      // Table for tracking embedding query costs (per-search costs)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS embedding_usage (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tokens INTEGER NOT NULL DEFAULT 0,
+          cost REAL NOT NULL DEFAULT 0,
+          type TEXT NOT NULL DEFAULT 'query',
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
 ];
 
 function ensureVersionTable(db: Database.Database): void {

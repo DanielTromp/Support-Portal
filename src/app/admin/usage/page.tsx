@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { UsageStats } from '@/types';
-import { Coins, MessageSquare, Zap, Users } from 'lucide-react';
+import { Coins, MessageSquare, Zap, Users, Database } from 'lucide-react';
+
+interface UsageData extends UsageStats {
+  embeddingCost: number;
+}
 
 export default function UsagePage() {
-  const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,10 +30,12 @@ export default function UsagePage() {
 
   if (!usage) return null;
 
+  const totalCost = usage.totals.total_cost + (usage.embeddingCost || 0);
+
   const cards = [
-    { label: 'Total Cost', value: `$${usage.totals.total_cost.toFixed(4)}`, icon: Coins, color: 'text-green-600 bg-green-50' },
-    { label: 'AI Responses', value: usage.totals.total_messages, icon: MessageSquare, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Tokens In', value: usage.totals.total_tokens_in.toLocaleString(), icon: Zap, color: 'text-purple-600 bg-purple-50' },
+    { label: 'Total Cost', value: `$${totalCost.toFixed(4)}`, icon: Coins, color: 'text-green-600 bg-green-50' },
+    { label: 'Chat Cost', value: `$${usage.totals.total_cost.toFixed(4)}`, icon: MessageSquare, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Embedding Cost', value: `$${(usage.embeddingCost || 0).toFixed(4)}`, icon: Database, color: 'text-purple-600 bg-purple-50' },
     { label: 'Tokens Out', value: usage.totals.total_tokens_out.toLocaleString(), icon: Zap, color: 'text-orange-600 bg-orange-50' },
   ];
 

@@ -12,6 +12,7 @@ export interface FaqItem {
   question: string;
   answer: string;
   category: string;
+  aliases?: string;
 }
 
 export interface FaqData {

@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { checkAccess } from '@/lib/rbac';
 import { getDb } from '@/lib/db';
 import PDFDocument from 'pdfkit';
+import { invalidateFaqCache } from '@/lib/search';
+import { regenerateAllEmbeddings } from '@/lib/embeddings';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,6 +137,9 @@ export async function POST(req: NextRequest) {
        );
     }
   })();
+
+  invalidateFaqCache();
+  regenerateAllEmbeddings().catch(() => {});
 
   return NextResponse.json({ ok: true, message: 'FAQ Import complete' });
 }

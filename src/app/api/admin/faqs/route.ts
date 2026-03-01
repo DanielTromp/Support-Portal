@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { checkAccess } from '@/lib/rbac';
 import { getDb } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { invalidateFaqCache } from '@/lib/search';
+import { generateAndStoreEmbedding, deleteEmbedding } from '@/lib/embeddings';
 
 export async function GET() {
   const session = await auth();
@@ -50,9 +52,13 @@ export async function POST(req: NextRequest) {
     finalIsEnabled
   );
 
+  const newId = result.lastInsertRowid as number;
   log('info', `FAQ created: ${question}`, { createdBy: session?.user?.name || 'unknown' });
 
-  return NextResponse.json({ id: result.lastInsertRowid, category_id, question, is_enabled }, { status: 201 });
+  invalidateFaqCache();
+  generateAndStoreEmbedding(newId).catch(() => {});
+
+  return NextResponse.json({ id: newId, category_id, question, is_enabled }, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
@@ -104,6 +110,9 @@ export async function PUT(req: NextRequest) {
 
   log('info', `FAQ updated: ${finalQuestion}`, { updatedBy: session?.user?.name || 'unknown' });
 
+  invalidateFaqCache();
+  generateAndStoreEmbedding(id).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }
 
@@ -124,8 +133,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'FAQ not found' }, { status: 404 });
   }
 
+  deleteEmbedding(id);
   db.prepare('DELETE FROM faqs WHERE id = ?').run(id);
   log('info', `FAQ deleted: ${faq.question}`, { deletedBy: session?.user?.name || 'unknown' });
+
+  invalidateFaqCache();
 
   return NextResponse.json({ ok: true });
 }
